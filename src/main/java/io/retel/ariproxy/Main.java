@@ -35,6 +35,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Main {
 
@@ -47,6 +49,7 @@ public class Main {
   private static final String HTTPPORT = "httpport";
   public static final String KAFKA = "kafka";
   private static final Duration HEALTH_REPORT_TIMEOUT = Duration.ofMillis(100);
+  private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
   static {
     System.setProperty(
@@ -54,8 +57,10 @@ public class Main {
   }
 
   public static void main(String[] args) {
+    LOGGER.info("Starting ari-proxy...");
 
     final Config serviceConfig = ConfigFactory.load().getConfig(SERVICE);
+    LOGGER.info("Using config: {}", serviceConfig);
 
     ActorSystem.create(
         Behaviors.setup(
@@ -100,6 +105,13 @@ public class Main {
               return Behaviors.ignore();
             }),
         serviceConfig.getString(NAME));
+
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  LOGGER.info("Received SIGTERM, shutting down...");
+                }));
   }
 
   private static void runAriCommandResponseProcessor(
@@ -111,7 +123,9 @@ public class Main {
             .withBootstrapServers(kafkaConfig.getString(BOOTSTRAP_SERVERS))
             .withGroupId(kafkaConfig.getString(CONSUMER_GROUP))
             .withProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true")
-            .withProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+            .withProperty(
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                kafkaConfig.getString("auto-offset-reset"));
 
     final ProducerSettings<String, String> producerSettings =
         ProducerSettings.create(system, new StringSerializer(), new StringSerializer())

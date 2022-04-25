@@ -1,5 +1,6 @@
 package io.retel.ariproxy.boundary.callcontext;
 
+import static io.retel.ariproxy.TestUtils.withCallContextKeyPrefix;
 import static org.junit.jupiter.api.Assertions.*;
 
 import akka.actor.testkit.typed.javadsl.ActorTestKit;
@@ -27,19 +28,6 @@ class CallContextProviderTest {
   private static final String CALL_CONTEXT_FROM_CHANNEL_VARS = "theCallContextFromChannelVars";
 
   @Test
-  void verifyRegisterCallContextReturnsThatContext() {
-    final ActorRef<CallContextProviderMessage> callContextProvider =
-        testKit.spawn(CallContextProvider.create(new MemoryKeyValueStore()));
-    final TestProbe<CallContextRegistered> probe =
-        testKit.createTestProbe(CallContextRegistered.class);
-
-    callContextProvider.tell(
-        new RegisterCallContext(RESOURCE_ID, CALL_CONTEXT_FROM_DB, probe.getRef()));
-
-    probe.expectMessage(new CallContextRegistered(RESOURCE_ID, CALL_CONTEXT_FROM_DB));
-  }
-
-  @Test
   void verifyCreateIfMissingPolicyIsAppliedProperly() {
     final Map<String, String> store = new HashMap<>();
     final ActorRef<CallContextProviderMessage> callContextProvider =
@@ -54,7 +42,7 @@ class CallContextProviderTest {
     final StatusReply<CallContextProvided> response = expectCalContextProviderResponse(probe);
     assertTrue(response.isSuccess());
     assertDoesNotThrow(() -> UUID.fromString(response.getValue().callContext()));
-    assertTrue(StringUtils.isNotBlank(store.get(RESOURCE_ID)));
+    assertTrue(StringUtils.isNotBlank(store.get(withCallContextKeyPrefix(RESOURCE_ID))));
   }
 
   @Test
@@ -75,13 +63,13 @@ class CallContextProviderTest {
     final StatusReply<CallContextProvided> response = expectCalContextProviderResponse(probe);
     assertTrue(response.isSuccess());
     assertEquals(CALL_CONTEXT_FROM_CHANNEL_VARS, response.getValue().callContext());
-    assertEquals(CALL_CONTEXT_FROM_CHANNEL_VARS, store.get(RESOURCE_ID));
+    assertEquals(CALL_CONTEXT_FROM_CHANNEL_VARS, store.get(withCallContextKeyPrefix(RESOURCE_ID)));
   }
 
   @Test
   void verifyCreateIfMissingPolicyIsAppliedProperlyWhenCallContextIsProvidedInChannelVarAndInDB() {
     final Map<String, String> store = new HashMap<>();
-    store.put(RESOURCE_ID, CALL_CONTEXT_FROM_DB);
+    store.put(withCallContextKeyPrefix(RESOURCE_ID), CALL_CONTEXT_FROM_DB);
     final ActorRef<CallContextProviderMessage> callContextProvider =
         testKit.spawn(CallContextProvider.create(new MemoryKeyValueStore(store)));
     final TestProbe<StatusReply<CallContextProvided>> probe =
@@ -96,13 +84,13 @@ class CallContextProviderTest {
 
     final StatusReply<CallContextProvided> response = expectCalContextProviderResponse(probe);
     assertEquals(CALL_CONTEXT_FROM_CHANNEL_VARS, response.getValue().callContext());
-    assertEquals(CALL_CONTEXT_FROM_CHANNEL_VARS, store.get(RESOURCE_ID));
+    assertEquals(CALL_CONTEXT_FROM_CHANNEL_VARS, store.get(withCallContextKeyPrefix(RESOURCE_ID)));
   }
 
   @Test
   void verifyLookupOnlyPolicyIsAppliedProperlyIfEntryAlreadyExisted() {
     final Map<String, String> store = new HashMap<>();
-    store.put(RESOURCE_ID, CALL_CONTEXT_FROM_DB);
+    store.put(withCallContextKeyPrefix(RESOURCE_ID), CALL_CONTEXT_FROM_DB);
     final ActorRef<CallContextProviderMessage> callContextProvider =
         testKit.spawn(CallContextProvider.create(new MemoryKeyValueStore(store)));
     final TestProbe<StatusReply<CallContextProvided>> probe =
@@ -114,7 +102,7 @@ class CallContextProviderTest {
 
     final StatusReply<CallContextProvided> response = expectCalContextProviderResponse(probe);
     assertEquals(CALL_CONTEXT_FROM_DB, response.getValue().callContext());
-    assertEquals(CALL_CONTEXT_FROM_DB, store.get(RESOURCE_ID));
+    assertEquals(CALL_CONTEXT_FROM_DB, store.get(withCallContextKeyPrefix(RESOURCE_ID)));
   }
 
   @Test
